@@ -12,16 +12,26 @@ import {
   Text,
   useDisclosure,
 } from "@chakra-ui/react";
-import React from "react";
+import React, { useEffect } from "react";
 import { useRecoilState } from "recoil";
 import AuthInputs from "./AuthInputs";
 import OAuthButton from "./OAuthButton";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { auth } from "@/src/firebase/clientApp";
 
 const AuthModal: React.FC = () => {
   const [modalState, setModalState] = useRecoilState(AuthModalState);
+  const [user, loading, error] = useAuthState(auth);
   const handleClose = () => {
     setModalState((prev) => ({ ...prev, open: false }));
   };
+
+  useEffect(() => {
+    if (user) {
+      handleClose();
+      console.log("user", user);
+    }
+  }, [user]);
   return (
     <>
       <Modal isOpen={modalState.open} onClose={handleClose}>
