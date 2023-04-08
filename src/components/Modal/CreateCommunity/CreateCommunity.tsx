@@ -24,6 +24,10 @@ import {
 import React, { useState } from "react";
 import { HiLockClosed } from "react-icons/hi";
 import { BsFillEyeFill, BsFillPersonFill } from "react-icons/bs";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { firestore } from "@/src/firebase/clientApp";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { auth } from "@/src/firebase/clientApp";
 type CreateCommunityProps = {
   open: boolean;
   handleClose: () => void;
@@ -33,18 +37,57 @@ const CreateCommunity: React.FC<CreateCommunityProps> = ({
   open,
   handleClose,
 }) => {
+  const [user] = useAuthState(auth);
   const [communityName, setCommunityName] = useState("");
   const [charCount, setcharCount] = useState(21);
   const [communityType, setcommunityType] = useState("public");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.value.length > 21) return;
     setCommunityName(event.target.value);
     setcharCount(21 - event.target.value.length);
   };
+
   const onCommunityTypeChange = (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     setcommunityType(event.target.name);
+  };
+
+  const handleCreateCommunity = async () => {
+    //validate community
+    if (error) setError("");
+    var format = /[ `!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~]/;
+    if (format.test(communityName) || communityName.length < 3) {
+      setError(
+        "Community name must be at least 3 characters long and cannot contain special characters"
+      );
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const communityDocRef = doc(firestore, "communities", communityName);
+      const communityDoc = await getDoc(communityDocRef);
+      //check if community exists
+      if (communityDoc.exists()) {
+        throw new Error(`Community ${communityName} is already taken`);
+        return;
+      }
+      //create the community
+      await setDoc(communityDocRef, {
+        createId: user?.uid,
+        createdAt: serverTimestamp(),
+        numberOfMembers: 1,
+        privacyType: communityType,
+      });
+    } catch (error: any) {
+      console.log("hanle community error", error);
+      setError(error.message);
+    }
+    setLoading(false);
   };
   return (
     <Modal isOpen={open} onClose={handleClose} size={"lg"}>
@@ -92,6 +135,11 @@ const CreateCommunity: React.FC<CreateCommunityProps> = ({
             <Text fontSize={"9pt"} color={charCount === 0 ? "red" : "black"}>
               {charCount} Characters remaining
             </Text>
+            {error && (
+              <Text fontSize={"9pt"} color={"red"} pt={1}>
+                {error}
+              </Text>
+            )}
             <Box mt={4} mb={4}>
               <Text fontWeight={600} fontSize={15}>
                 Community type
@@ -159,7 +207,11 @@ const CreateCommunity: React.FC<CreateCommunityProps> = ({
           >
             Cancel
           </Button>
-          <Button height={"30px"} onClick={() => {}}>
+          <Button
+            height={"30px"}
+            onClick={handleCreateCommunity}
+            isLoading={loading}
+          >
             Create Community
           </Button>
         </ModalFooter>
