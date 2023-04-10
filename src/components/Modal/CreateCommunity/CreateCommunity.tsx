@@ -24,7 +24,13 @@ import {
 import React, { useState } from "react";
 import { HiLockClosed } from "react-icons/hi";
 import { BsFillEyeFill, BsFillPersonFill } from "react-icons/bs";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  runTransaction,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
 import { firestore } from "@/src/firebase/clientApp";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "@/src/firebase/clientApp";
@@ -70,18 +76,27 @@ const CreateCommunity: React.FC<CreateCommunityProps> = ({
 
     try {
       const communityDocRef = doc(firestore, "communities", communityName);
-      const communityDoc = await getDoc(communityDocRef);
-      //check if community exists
-      if (communityDoc.exists()) {
-        throw new Error(`Community ${communityName} is already taken`);
-        return;
-      }
-      //create the community
-      await setDoc(communityDocRef, {
-        createId: user?.uid,
-        createdAt: serverTimestamp(),
-        numberOfMembers: 1,
-        privacyType: communityType,
+      await runTransaction(firestore, async (transaction) => {
+        const communityDoc = await getDoc(communityDocRef);
+        //check if community exists
+        if (communityDoc.exists()) {
+          throw new Error(`Community ${communityName} is already taken`);
+        }
+        //create the community
+        await transaction.set(communityDocRef, {
+          createId: user?.uid,
+          createdAt: serverTimestamp(),
+          numberOfMembers: 1,
+          privacyType: communityType,
+        });
+        //create the community snippet on user
+        transaction.set(
+          doc(firestore, `users/${user?.uid}/communitySnippets`, communityName),
+          {
+            communityId: communityName,
+            isModerator: true,
+          }
+        );
       });
     } catch (error: any) {
       console.log("hanle community error", error);
