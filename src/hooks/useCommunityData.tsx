@@ -45,6 +45,7 @@ const useCommunityData = () => {
     } catch (error) {
       console.log("getMySnippets error", error);
     }
+    setLoading(false);
   };
   const joinCommunity = (communityData: Community) => {};
   const leaveCommunity = (communityId: string) => {};
@@ -57,6 +58,7 @@ const useCommunityData = () => {
     //data and function
     communityStateValue,
     onJoinOrLeaveCommunity,
+    loading,
   };
 };
 export default useCommunityData;
